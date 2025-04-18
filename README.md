@@ -1,0 +1,2 @@
+# omybot
+bot for rss
