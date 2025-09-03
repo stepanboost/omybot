@@ -3,6 +3,8 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKe
 from aiogram.filters import Command
 from loguru import logger
 from ..config import config
+from ..llm.client import llm_client
+from ..utils.subjects import detect_subject, get_subject_emoji
 
 router = Router()
 
@@ -102,15 +104,53 @@ async def cmd_help(message: Message):
     await message.answer(help_text, reply_markup=WELCOME_KEYBOARD)
 
 
-# Базовый обработчик фото (демо)
+# Обработчик фото с реальным LLM
 @router.message(F.photo)
 async def handle_photo(message: Message):
-    await message.answer(
-        "Фото получено. Обрабатываю задание… (демо-ответ)"
-    )
+    # Отправляем сообщение о начале обработки
+    processing_msg = await message.answer("📸 Фото получено. Обрабатываю задание…")
+    
+    try:
+        # Получаем фото
+        photo = message.photo[-1]  # Берем самое большое фото
+        file = await message.bot.get_file(photo.file_id)
+        image_bytes = await message.bot.download_file(file.file_path)
+        
+        # Определяем предмет (пока без подсказки)
+        subject, confidence = detect_subject(message.caption or "")
+        subject_emoji = get_subject_emoji(subject)
+        
+        # Решаем задачу
+        result = await llm_client.solve_image(image_bytes.read(), subject)
+        
+        # Формируем ответ
+        response = f"{subject_emoji} **{result['subject'].title()}**\n\n"
+        
+        if result['short_answer']:
+            response += f"**Короткий ответ:** {result['short_answer']}\n\n"
+        
+        response += f"**Решение:**\n{result['explanation']}"
+        
+        if result['latex_formulas']:
+            response += "\n\n**Формулы:**\n"
+            for formula in result['latex_formulas']:
+                response += f"```math\n{formula}\n```\n"
+        
+        if result['quiz']:
+            response += "\n\n**Проверка себя:**\n"
+            for i, question in enumerate(result['quiz'][:3], 1):
+                response += f"{i}. {question}\n"
+        
+        # Удаляем сообщение о обработке и отправляем результат
+        await processing_msg.delete()
+        await message.answer(response, parse_mode="Markdown")
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки фото: {e}")
+        await processing_msg.edit_text("❌ Ошибка при обработке фото. Попробуйте еще раз.")
 
 
-# Базовый обработчик текста (демо) - исправлена ошибка с None
+# Обработчик текста с реальным LLM
 @router.message(F.text)
 async def handle_text(message: Message):
     # Проверяем, что text не None
@@ -125,12 +165,39 @@ async def handle_text(message: Message):
     if text in {"📝 Решить текстом", "📸 Решить по фото"}:
         return  # уже обработано соответствующими хендлерами
 
-    response = (
-        "📝 Задание получено. (демо-ответ)\n\n"
-        "В полной версии здесь будет:\n"
-        "• Определение предмета\n"
-        "• Пошаговое решение\n"
-        "• Формулы в LaTeX\n"
-        "• Небольшой квиз для самопроверки"
-    )
-    await message.answer(response)
+    # Отправляем сообщение о начале обработки
+    processing_msg = await message.answer("📝 Обрабатываю задание…")
+    
+    try:
+        # Определяем предмет
+        subject, confidence = detect_subject(text)
+        subject_emoji = get_subject_emoji(subject)
+        
+        # Решаем задачу
+        result = await llm_client.solve_text(text, subject)
+        
+        # Формируем ответ
+        response = f"{subject_emoji} **{result['subject'].title()}**\n\n"
+        
+        if result['short_answer']:
+            response += f"**Короткий ответ:** {result['short_answer']}\n\n"
+        
+        response += f"**Решение:**\n{result['explanation']}"
+        
+        if result['latex_formulas']:
+            response += "\n\n**Формулы:**\n"
+            for formula in result['latex_formulas']:
+                response += f"```math\n{formula}\n```\n"
+        
+        if result['quiz']:
+            response += "\n\n**Проверка себя:**\n"
+            for i, question in enumerate(result['quiz'][:3], 1):
+                response += f"{i}. {question}\n"
+        
+        # Удаляем сообщение о обработке и отправляем результат
+        await processing_msg.delete()
+        await message.answer(response, parse_mode="Markdown")
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки текста: {e}")
+        await processing_msg.edit_text("❌ Ошибка при обработке задания. Попробуйте еще раз.")
