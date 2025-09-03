@@ -57,15 +57,36 @@ class Config(BaseModel):
 def load_config() -> Config:
     """Загружает конфигурацию из переменных окружения"""
     
+    # Проверяем обязательные переменные
+    bot_token = os.getenv("BOT_TOKEN")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    
+    if not bot_token:
+        print("❌ ОШИБКА: Переменная BOT_TOKEN не установлена!")
+        print("📝 Установите переменную окружения BOT_TOKEN в Railway")
+        print("🔗 Получите токен у @BotFather в Telegram")
+        raise ValueError("BOT_TOKEN не установлен")
+    
+    if not openai_api_key:
+        print("⚠️  ПРЕДУПРЕЖДЕНИЕ: Переменная OPENAI_API_KEY не установлена")
+        print("📝 Для полного функционала установите OPENAI_API_KEY в Railway")
+        # Используем заглушку для демо-режима
+        openai_api_key = "demo_key"
+    
     # Парсим admin_ids из строки
     admin_ids_str = os.getenv("ADMIN_IDS", "")
     admin_ids = []
     if admin_ids_str:
         admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
     
+    print(f"✅ Конфигурация загружена:")
+    print(f"   - BOT_TOKEN: {'*' * 10 + bot_token[-4:] if bot_token else 'НЕ УСТАНОВЛЕН'}")
+    print(f"   - OPENAI_API_KEY: {'*' * 10 + openai_api_key[-4:] if openai_api_key != 'demo_key' else 'ДЕМО-РЕЖИМ'}")
+    print(f"   - ADMIN_IDS: {admin_ids}")
+    
     return Config(
-        bot_token=os.getenv("BOT_TOKEN", ""),
-        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        bot_token=bot_token,
+        openai_api_key=openai_api_key,
         llm_base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
         llm_model_text=os.getenv("LLM_MODEL_TEXT", "gpt-4o-mini"),
         llm_model_vision=os.getenv("LLM_MODEL_VISION", "gpt-4o-mini"),
@@ -78,4 +99,8 @@ def load_config() -> Config:
 
 
 # Глобальный экземпляр конфигурации
-config = load_config()
+try:
+    config = load_config()
+except Exception as e:
+    print(f"❌ Критическая ошибка загрузки конфигурации: {e}")
+    raise

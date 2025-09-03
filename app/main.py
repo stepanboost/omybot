@@ -51,15 +51,14 @@ class SchoolBot:
         await self.bot.session.close()
 
 
-# Глобальный экземпляр бота
-school_bot = SchoolBot()
-
-
 async def main():
     """Главная функция запуска бота"""
     
     try:
         logger.info("🚀 Запуск Telegram-бота 'Умный помощник по учёбе'")
+        
+        # Создаем экземпляр бота только при запуске
+        school_bot = SchoolBot()
         
         # Настраиваем обработчики сигналов для graceful shutdown
         def signal_handler(signum, frame):
@@ -79,7 +78,8 @@ async def main():
         sys.exit(1)
     finally:
         # Останавливаем бота
-        await school_bot.stop()
+        if 'school_bot' in locals():
+            await school_bot.stop()
         logger.info("Бот остановлен")
 
 
