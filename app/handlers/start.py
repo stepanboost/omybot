@@ -218,14 +218,16 @@ async def handle_photo(message: Message):
         import re
         explanation = result['explanation']
         if result['short_answer']:
+            # Убираем дублирующийся "Короткий ответ" из объяснения
             explanation = re.sub(r'\*\*Короткий ответ:\*\*\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
+            explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
         
         response += f"**Решение:**\n{explanation.strip()}"
         
         if result['latex_formulas']:
             response += "\n\n**🔢 Формулы:**\n"
             for formula in result['latex_formulas']:
-                response += f"```math\n{formula}\n```\n"
+                response += f"`{formula}`\n"
         
         if result['quiz']:
             response += "\n\n**🧠 Проверка себя:**\n"
@@ -277,14 +279,16 @@ async def handle_text(message: Message):
         import re
         explanation = result['explanation']
         if result['short_answer']:
+            # Убираем дублирующийся "Короткий ответ" из объяснения
             explanation = re.sub(r'\*\*Короткий ответ:\*\*\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
+            explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
         
         response += f"**Решение:**\n{explanation.strip()}"
         
         if result['latex_formulas']:
             response += "\n\n**🔢 Формулы:**\n"
             for formula in result['latex_formulas']:
-                response += f"```math\n{formula}\n```\n"
+                response += f"`{formula}`\n"
         
         if result['quiz']:
             response += "\n\n**🧠 Проверка себя:**\n"

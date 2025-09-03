@@ -124,7 +124,7 @@ class LLMClient:
 
 КРИТИЧЕСКИ ВАЖНО - ФОРМАТИРОВАНИЕ:
 1) Всегда давай решение и КОРОТКОЕ объяснение шаг за шагом.
-2) Формулы и выражения — в LaTeX, блоки оборачивай в ```math ... ``` (без подсветки языка).
+2) Формулы и выражения — в LaTeX inline формате: \( формула \) для простых формул.
 3) Если задача допускает «короткий ответ», вынеси его в начале.
 4) Не придумывай данных, не меняй чисел из условия.
 5) Если задача неоднозначна — предложи 1–2 варианта интерпретации и реши каждый кратко.
@@ -147,6 +147,8 @@ class LLMClient:
 2. [шаг 2]
 ...
 **Ответ:** [финальный ответ]
+
+ВАЖНО: Используй только inline LaTeX \( формула \) для математических выражений. НЕ используй блоки ```math```.
 
 Тон: чёткий, дружелюбный, без морализаторства. Язык — русский."""
         
@@ -181,11 +183,7 @@ class LLMClient:
         if short_answer_match:
             short_answer = short_answer_match.group(1).strip()
         
-        # Ищем LaTeX формулы - улучшенный поиск
-        # Ищем блоки ```math ... ```
-        latex_blocks = re.findall(r'```math\s*(.*?)\s*```', content, re.DOTALL)
-        latex_formulas.extend([match.strip() for match in latex_blocks])
-        
+        # Ищем LaTeX формулы - только inline и display
         # Ищем inline LaTeX формулы \( ... \)
         inline_latex = re.findall(r'\\\(([^)]+)\\\)', content)
         latex_formulas.extend([match.strip() for match in inline_latex])
