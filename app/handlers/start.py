@@ -224,11 +224,6 @@ async def handle_photo(message: Message):
         
         response += f"**Решение:**\n{explanation.strip()}"
         
-        if result['latex_formulas']:
-            response += "\n\n**🔢 Формулы:**\n"
-            for formula in result['latex_formulas']:
-                response += f"`{formula}`\n"
-        
         if result['quiz']:
             response += "\n\n**🧠 Проверка себя:**\n"
             for i, question in enumerate(result['quiz'][:3], 1):
@@ -284,11 +279,6 @@ async def handle_text(message: Message):
             explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
         
         response += f"**Решение:**\n{explanation.strip()}"
-        
-        if result['latex_formulas']:
-            response += "\n\n**🔢 Формулы:**\n"
-            for formula in result['latex_formulas']:
-                response += f"`{formula}`\n"
         
         if result['quiz']:
             response += "\n\n**🧠 Проверка себя:**\n"
