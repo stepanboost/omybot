@@ -129,15 +129,21 @@ async def handle_photo(message: Message):
         if result['short_answer']:
             response += f"**Короткий ответ:** {result['short_answer']}\n\n"
         
-        response += f"**Решение:**\n{result['explanation']}"
+        # Очищаем объяснение от уже извлеченных частей
+        import re
+        explanation = result['explanation']
+        if result['short_answer']:
+            explanation = re.sub(r'\*\*Короткий ответ:\*\*\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
+        
+        response += f"**Решение:**\n{explanation.strip()}"
         
         if result['latex_formulas']:
-            response += "\n\n**Формулы:**\n"
+            response += "\n\n**🔢 Формулы:**\n"
             for formula in result['latex_formulas']:
                 response += f"```math\n{formula}\n```\n"
         
         if result['quiz']:
-            response += "\n\n**Проверка себя:**\n"
+            response += "\n\n**🧠 Проверка себя:**\n"
             for i, question in enumerate(result['quiz'][:3], 1):
                 response += f"{i}. {question}\n"
         
@@ -182,15 +188,21 @@ async def handle_text(message: Message):
         if result['short_answer']:
             response += f"**Короткий ответ:** {result['short_answer']}\n\n"
         
-        response += f"**Решение:**\n{result['explanation']}"
+        # Очищаем объяснение от уже извлеченных частей
+        import re
+        explanation = result['explanation']
+        if result['short_answer']:
+            explanation = re.sub(r'\*\*Короткий ответ:\*\*\s*.*?(?=\n\n|\*\*|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
+        
+        response += f"**Решение:**\n{explanation.strip()}"
         
         if result['latex_formulas']:
-            response += "\n\n**Формулы:**\n"
+            response += "\n\n**🔢 Формулы:**\n"
             for formula in result['latex_formulas']:
                 response += f"```math\n{formula}\n```\n"
         
         if result['quiz']:
-            response += "\n\n**Проверка себя:**\n"
+            response += "\n\n**🧠 Проверка себя:**\n"
             for i, question in enumerate(result['quiz'][:3], 1):
                 response += f"{i}. {question}\n"
         

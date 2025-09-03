@@ -121,13 +121,33 @@ class LLMClient:
     def _get_system_prompt(self, subject_hint: str = None) -> str:
         """Возвращает системный промпт для предмета"""
         base_prompt = """ТЫ — «Умный помощник по учёбе» для школьника 5–11 классов. 
-Требования к ответу:
+
+КРИТИЧЕСКИ ВАЖНО - ФОРМАТИРОВАНИЕ:
 1) Всегда давай решение и КОРОТКОЕ объяснение шаг за шагом.
 2) Формулы и выражения — в LaTeX, блоки оборачивай в ```math ... ``` (без подсветки языка).
 3) Если задача допускает «короткий ответ», вынеси его в начале.
 4) Не придумывай данных, не меняй чисел из условия.
 5) Если задача неоднозначна — предложи 1–2 варианта интерпретации и реши каждый кратко.
 6) В конце дай «Проверка себя» — 2–3 мини-вопроса по теме (без ответов).
+
+ПРАВИЛА LaTeX:
+- Степени: x^2, x^{n+1}
+- Индексы: x_1, x_{max}
+- Дроби: \\frac{a}{b}
+- Корни: \\sqrt{x}, \\sqrt[n]{x}
+- Греческие буквы: \\alpha, \\beta, \\gamma, \\theta
+- Функции: \\sin, \\cos, \\tan, \\arctan, \\ln, \\log
+- Стрелки: \\rightarrow, \\leftarrow, \\Rightarrow
+- Символы: \\approx, \\neq, \\leq, \\geq, \\pm
+
+СТРУКТУРА ОТВЕТА:
+**Короткий ответ:** [если есть]
+**Решение:**
+1. [шаг 1]
+2. [шаг 2]
+...
+**Ответ:** [финальный ответ]
+
 Тон: чёткий, дружелюбный, без морализаторства. Язык — русский."""
         
         if subject_hint:
@@ -149,8 +169,7 @@ class LLMClient:
     
     def _parse_response(self, content: str, subject_hint: str = None) -> Dict[str, Any]:
         """Парсит ответ от LLM"""
-        # Простой парсинг - в реальной версии можно улучшить
-        lines = content.split('\n')
+        import re
         
         short_answer = ""
         explanation = content
@@ -158,24 +177,35 @@ class LLMClient:
         quiz = []
         
         # Ищем короткий ответ
-        for line in lines:
-            if "ответ:" in line.lower() or "результат:" in line.lower():
-                short_answer = line.strip()
-                break
+        short_answer_match = re.search(r'\*\*Короткий ответ:\*\*\s*(.*?)(?=\n\n|\*\*|$)', content, re.IGNORECASE | re.DOTALL)
+        if short_answer_match:
+            short_answer = short_answer_match.group(1).strip()
         
-        # Ищем LaTeX формулы
-        import re
-        latex_matches = re.findall(r'```math\s*(.*?)\s*```', content, re.DOTALL)
-        latex_formulas = [match.strip() for match in latex_matches]
+        # Ищем LaTeX формулы - улучшенный поиск
+        # Ищем блоки ```math ... ```
+        latex_blocks = re.findall(r'```math\s*(.*?)\s*```', content, re.DOTALL)
+        latex_formulas.extend([match.strip() for match in latex_blocks])
+        
+        # Ищем inline LaTeX формулы \( ... \)
+        inline_latex = re.findall(r'\\\(([^)]+)\\\)', content)
+        latex_formulas.extend([match.strip() for match in inline_latex])
+        
+        # Ищем display LaTeX формулы \[ ... \]
+        display_latex = re.findall(r'\\\[([^\]]+)\\\]', content)
+        latex_formulas.extend([match.strip() for match in display_latex])
+        
+        # Убираем дубликаты
+        latex_formulas = list(dict.fromkeys(latex_formulas))
         
         # Ищем квиз
         quiz_section = False
+        lines = content.split('\n')
         for line in lines:
             if "проверка себя" in line.lower() or "квиз" in line.lower():
                 quiz_section = True
                 continue
             if quiz_section and line.strip():
-                if line.strip().startswith(('1)', '2)', '3)', '•', '-')):
+                if line.strip().startswith(('1)', '2)', '3)', '•', '-', '1.', '2.', '3.')):
                     quiz.append(line.strip())
         
         return {
