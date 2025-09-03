@@ -53,6 +53,12 @@ class Config(BaseModel):
         description="Файл для логов"
     )
 
+    # Подписка/оплата
+    subscription_pay_url: str = Field(
+        default="",
+        description="URL страницы оплаты подписки"
+    )
+
 
 def load_config() -> Config:
     """Загружает конфигурацию из переменных окружения"""
@@ -94,7 +100,8 @@ def load_config() -> Config:
         rate_limit_per_hour=int(os.getenv("RATE_LIMIT_PER_HOUR", "10")),
         database_url=os.getenv("DATABASE_URL", "data/schoolbot.db"),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
-        log_file=os.getenv("LOG_FILE", "logs/schoolbot.log")
+        log_file=os.getenv("LOG_FILE", "logs/schoolbot.log"),
+        subscription_pay_url=os.getenv("SUBSCRIPTION_PAY_URL", "")
     )
 
 

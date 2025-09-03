@@ -1,7 +1,8 @@
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 from loguru import logger
+from ..config import config
 
 router = Router()
 
@@ -18,9 +19,18 @@ WELCOME_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 
+def build_subscription_keyboard() -> InlineKeyboardMarkup:
+    pay_url = config.subscription_pay_url.strip()
+    buttons = []
+    if pay_url:
+        buttons.append([InlineKeyboardButton(text="💳 Оплатить 299 ₽", url=pay_url)])
+    buttons.append([InlineKeyboardButton(text="✖️ Пока без подписки", callback_data="sub_skip")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 @router.message(Command("start"))
 async def cmd_start(message: Message):
-    """Короткое приветствие + клавиатура."""
+    """Короткое приветствие + inline-кнопки подписки + основное меню."""
     user_id = message.from_user.id
     first_name = message.from_user.first_name or ""
 
@@ -33,6 +43,23 @@ async def cmd_start(message: Message):
     )
 
     await message.answer(welcome_text, reply_markup=WELCOME_KEYBOARD)
+
+    # Отправляем блок с подпиской отдельным сообщением, чтобы inline-кнопки были сразу
+    sub_text = (
+        "✨ Доступна подписка за 299 ₽ в месяц: быстрее ответы и приоритетная очередь.\n"
+        "Можно продолжить и без подписки."
+    )
+    await message.answer(sub_text, reply_markup=build_subscription_keyboard())
+
+
+@router.callback_query(F.data == "sub_skip")
+async def subscription_skip(callback: CallbackQuery):
+    await callback.answer("Продолжаем без подписки", show_alert=False)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        "Окей! Выберите режим ниже или отправьте задание.",
+        reply_markup=WELCOME_KEYBOARD,
+    )
 
 
 @router.message(F.text == "📝 Решить текстом")
