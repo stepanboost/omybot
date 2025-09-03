@@ -55,11 +55,21 @@ async def cmd_start(message: Message):
 @router.callback_query(F.data == "sub_skip")
 async def subscription_skip(callback: CallbackQuery):
     await callback.answer("Продолжаем без подписки", show_alert=False)
-    await callback.message.edit_reply_markup(reply_markup=None)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception as e:
+        logger.warning(f"Не удалось убрать inline-кнопки: {e}")
+    
     await callback.message.answer(
         "Окей! Выберите режим ниже или отправьте задание.",
         reply_markup=WELCOME_KEYBOARD,
     )
+
+
+# Обработчик для всех остальных callback-запросов
+@router.callback_query()
+async def handle_unknown_callback(callback: CallbackQuery):
+    await callback.answer("Неизвестная команда", show_alert=False)
 
 
 @router.message(F.text == "📝 Решить текстом")
@@ -100,10 +110,14 @@ async def handle_photo(message: Message):
     )
 
 
-# Базовый обработчик текста (демо)
+# Базовый обработчик текста (демо) - исправлена ошибка с None
 @router.message(F.text)
 async def handle_text(message: Message):
-    text = (message.text or "").strip()
+    # Проверяем, что text не None
+    if not message.text:
+        return
+    
+    text = message.text.strip()
     if not text:
         await message.answer("Пожалуйста, отправьте текст задания или фото.")
         return
