@@ -143,7 +143,7 @@ async def cmd_cancel_subscription(message: Message):
         "💡 *Базовый функционал останется доступным*"
     )
     
-    await message.answer(cancel_text, reply_markup=keyboard, parse_mode="Markdown")
+    await message.answer(cancel_text, reply_markup=keyboard)
 
 
 @router.callback_query(F.data == "confirm_cancel")
@@ -163,7 +163,6 @@ async def confirm_cancel_subscription(callback: CallbackQuery):
         "Спасибо, что пользовались нашим сервисом! 🙏\n"
         "Базовый функционал остается доступным.\n\n"
         "Если передумаете, просто нажмите /start для повторной подписки! 🚀",
-        parse_mode="Markdown"
     )
 
 
@@ -181,7 +180,6 @@ async def keep_subscription(callback: CallbackQuery):
         "✅ **Отлично! Подписка сохранена!**\n\n"
         "Продолжайте пользоваться всеми VIP-возможностями! 🚀\n"
         "Спасибо за доверие! 💎",
-        parse_mode="Markdown"
     )
 
 
@@ -226,7 +224,7 @@ async def handle_photo(message: Message):
         
         # Удаляем сообщение о обработке и отправляем результат
         await processing_msg.delete()
-        await message.answer(response, parse_mode="Markdown")
+        await message.answer(response)
         
     except Exception as e:
         logger.error(f"Ошибка обработки фото: {e}")
@@ -281,7 +279,7 @@ async def handle_text(message: Message):
         
         # Удаляем сообщение о обработке и отправляем результат
         await processing_msg.delete()
-        await message.answer(response, parse_mode="Markdown")
+        await message.answer(response)
         
     except Exception as e:
         logger.error(f"Ошибка обработки текста: {e}")
