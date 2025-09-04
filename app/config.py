@@ -20,11 +20,11 @@ class Config(BaseModel):
         description="Базовый URL для OpenAI API"
     )
     llm_model_text: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-4o",
         description="Модель для текстовых запросов"
     )
     llm_model_vision: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-4o",
         description="Модель для запросов с изображениями"
     )
     

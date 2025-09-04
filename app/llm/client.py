@@ -38,8 +38,8 @@ class LLMClient:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": text}
                         ],
-                        "temperature": 0.7,
-                        "max_tokens": 1500
+                        "temperature": 0.1,
+                        "max_tokens": 2000
                     }
                 )
                 
@@ -94,8 +94,8 @@ class LLMClient:
                                 ]
                             }
                         ],
-                        "temperature": 0.7,
-                        "max_tokens": 1500
+                        "temperature": 0.1,
+                        "max_tokens": 2000
                     }
                 )
                 
