@@ -121,7 +121,9 @@ async def cmd_help(message: Message):
         "Команды:\n"
         "• /start - начать работу\n"
         "• /help - эта справка\n"
-        "• /cancel_subscription - отменить подписку\n\n"
+        "• /cancel_subscription - отменить подписку\n"
+        "• /stats - статистика базы данных\n"
+        "• /cleanup - очистить старые данные\n\n"
         "Примеры:\n"
         "• Реши уравнение: 3x + 7 = 25\n"
         "• Физика: тело 2 кг движется с ускорением 3 м/с². Найди силу\n"
@@ -284,3 +286,65 @@ async def handle_text(message: Message):
     except Exception as e:
         logger.error(f"Ошибка обработки текста: {e}")
         await processing_msg.edit_text("❌ Ошибка при обработке задания. Попробуйте еще раз.")
+
+
+@router.message(Command("stats"))
+async def cmd_stats(message: Message):
+    """Показывает статистику базы данных"""
+    try:
+        stats = await db_repo.get_database_stats()
+        
+        stats_text = (
+            "📊 Статистика базы данных:\n\n"
+            f"👥 Пользователи: {stats['users_count']}\n"
+            f"📝 Запросы: {stats['requests_count']}\n"
+            f"💬 Сообщения контекста: {stats['conversation_context_count']}\n"
+            f"💎 Подписки: {stats['subscriptions_count']}\n\n"
+            f"💾 Размер базы: {stats['database_size_mb']} МБ\n\n"
+            f"🗑️ Старые данные:\n"
+            f"• Контекст старше 7 дней: {stats['old_context_messages']}\n"
+            f"• Запросы старше 30 дней: {stats['old_requests']}\n\n"
+            "💡 Используйте /cleanup для очистки старых данных"
+        )
+        
+        await message.answer(stats_text)
+        
+    except Exception as e:
+        logger.error(f"Ошибка получения статистики: {e}")
+        await message.answer("❌ Ошибка при получении статистики")
+
+
+@router.message(Command("cleanup"))
+async def cmd_cleanup(message: Message):
+    """Очищает старые данные"""
+    try:
+        # Показываем сообщение о начале очистки
+        cleanup_msg = await message.answer("🧹 Начинаю очистку старых данных...")
+        
+        # Выполняем очистку
+        result = await db_repo.cleanup_old_data()
+        
+        # Показываем результат
+        total_deleted = sum(result.values())
+        
+        cleanup_result = (
+            "✅ Очистка завершена!\n\n"
+            f"🗑️ Удалено записей:\n"
+            f"• Сообщения контекста: {result['context_messages_deleted']}\n"
+            f"• Старые запросы: {result['old_requests_deleted']}\n"
+            f"• Неактивные пользователи: {result['inactive_users_deleted']}\n"
+            f"• Истекшие подписки: {result['expired_subscriptions_deleted']}\n\n"
+            f"📊 Всего удалено: {total_deleted} записей"
+        )
+        
+        await cleanup_msg.edit_text(cleanup_result)
+        
+        # Если удалили много данных, делаем VACUUM
+        if total_deleted > 50:
+            vacuum_msg = await message.answer("🔧 Оптимизирую базу данных...")
+            await db_repo.vacuum_database()
+            await vacuum_msg.edit_text("✅ База данных оптимизирована!")
+        
+    except Exception as e:
+        logger.error(f"Ошибка очистки данных: {e}")
+        await message.answer("❌ Ошибка при очистке данных")

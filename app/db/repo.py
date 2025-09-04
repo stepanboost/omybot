@@ -219,6 +219,122 @@ class DatabaseRepo:
             "recent_requests": recent_requests,
             "favorite_subjects": favorite_subjects
         }
+    
+    # === ОЧИСТКА ДАННЫХ ===
+    
+    async def cleanup_old_data(self, days: int = 7):
+        """Удаляет старые данные для экономии места"""
+        conn = await self.get_connection()
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        try:
+            # Удаляем старый контекст диалогов
+            cursor = await conn.execute("""
+                DELETE FROM conversation_context
+                WHERE timestamp < ?
+            """, (cutoff_date,))
+            context_deleted = cursor.rowcount
+            
+            # Удаляем старые запросы (оставляем только последние 30 дней)
+            old_requests_cutoff = datetime.now() - timedelta(days=30)
+            cursor = await conn.execute("""
+                DELETE FROM requests
+                WHERE timestamp < ?
+            """, (old_requests_cutoff,))
+            requests_deleted = cursor.rowcount
+            
+            # Удаляем неактивных пользователей (не заходили больше 90 дней)
+            inactive_users_cutoff = datetime.now() - timedelta(days=90)
+            cursor = await conn.execute("""
+                DELETE FROM users
+                WHERE user_id NOT IN (
+                    SELECT DISTINCT user_id FROM requests 
+                    WHERE timestamp > ?
+                ) AND updated_at < ?
+            """, (inactive_users_cutoff, inactive_users_cutoff))
+            users_deleted = cursor.rowcount
+            
+            # Удаляем старые подписки (истекшие больше 30 дней назад)
+            expired_subs_cutoff = datetime.now() - timedelta(days=30)
+            cursor = await conn.execute("""
+                DELETE FROM subscriptions
+                WHERE expires_at < ? AND is_active = FALSE
+            """, (expired_subs_cutoff,))
+            subs_deleted = cursor.rowcount
+            
+            await conn.commit()
+            
+            return {
+                "context_messages_deleted": context_deleted,
+                "old_requests_deleted": requests_deleted,
+                "inactive_users_deleted": users_deleted,
+                "expired_subscriptions_deleted": subs_deleted
+            }
+            
+        except Exception as e:
+            await conn.rollback()
+            raise e
+    
+    async def get_database_stats(self) -> Dict[str, Any]:
+        """Получает статистику базы данных"""
+        conn = await self.get_connection()
+        
+        # Количество записей в каждой таблице
+        tables = ['users', 'requests', 'conversation_context', 'subscriptions']
+        stats = {}
+        
+        for table in tables:
+            cursor = await conn.execute(f"SELECT COUNT(*) FROM {table}")
+            count = (await cursor.fetchone())[0]
+            stats[f"{table}_count"] = count
+        
+        # Размер базы данных (приблизительно)
+        cursor = await conn.execute("""
+            SELECT page_count * page_size as size_bytes
+            FROM pragma_page_count(), pragma_page_size()
+        """)
+        size_result = await cursor.fetchone()
+        stats["database_size_bytes"] = size_result[0] if size_result else 0
+        stats["database_size_mb"] = round(stats["database_size_bytes"] / (1024 * 1024), 2)
+        
+        # Старые данные
+        cutoff_date = datetime.now() - timedelta(days=7)
+        cursor = await conn.execute("""
+            SELECT COUNT(*) FROM conversation_context WHERE timestamp < ?
+        """, (cutoff_date,))
+        stats["old_context_messages"] = (await cursor.fetchone())[0]
+        
+        old_requests_cutoff = datetime.now() - timedelta(days=30)
+        cursor = await conn.execute("""
+            SELECT COUNT(*) FROM requests WHERE timestamp < ?
+        """, (old_requests_cutoff,))
+        stats["old_requests"] = (await cursor.fetchone())[0]
+        
+        return stats
+    
+    async def vacuum_database(self):
+        """Оптимизирует базу данных (VACUUM)"""
+        conn = await self.get_connection()
+        await conn.execute("VACUUM")
+        await conn.commit()
+    
+    async def delete_user_data(self, user_id: int):
+        """Полностью удаляет все данные пользователя (GDPR compliance)"""
+        conn = await self.get_connection()
+        
+        try:
+            # Удаляем в правильном порядке (с учетом внешних ключей)
+            await conn.execute("DELETE FROM conversation_context WHERE user_id = ?", (user_id,))
+            await conn.execute("DELETE FROM requests WHERE user_id = ?", (user_id,))
+            await conn.execute("DELETE FROM subscriptions WHERE user_id = ?", (user_id,))
+            await conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+            
+            await conn.commit()
+            return True
+            
+        except Exception as e:
+            await conn.rollback()
+            raise e
 
 
 # Глобальный экземпляр репозитория
