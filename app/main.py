@@ -7,6 +7,7 @@ from aiogram.types import BotCommand
 from aiogram.fsm.storage.memory import MemoryStorage
 from .config import config
 from .handlers.start import router as start_router
+from .db.repo import db_repo
 
 
 class SchoolBot:
@@ -32,6 +33,11 @@ class SchoolBot:
     async def start(self):
         """Запускает бота"""
         try:
+            # Инициализируем базу данных
+            logger.info("Инициализация базы данных...")
+            await db_repo.init_db()
+            logger.info("База данных инициализирована")
+            
             # Устанавливаем команды
             await self.set_commands()
             
@@ -44,11 +50,13 @@ class SchoolBot:
             raise
         finally:
             await self.bot.session.close()
+            await db_repo.close()
     
     async def stop(self):
         """Останавливает бота"""
         logger.info("Бот останавливается...")
         await self.bot.session.close()
+        await db_repo.close()
 
 
 async def main():
@@ -80,6 +88,7 @@ async def main():
         # Останавливаем бота
         if 'school_bot' in locals():
             await school_bot.stop()
+        await db_repo.close()
         logger.info("Бот остановлен")
 
 

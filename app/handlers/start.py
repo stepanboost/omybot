@@ -5,6 +5,7 @@ from loguru import logger
 from ..config import config
 from ..llm.client import llm_client
 from ..utils.subjects import detect_subject, get_subject_emoji
+from ..db.repo import db_repo
 
 router = Router()
 
@@ -35,8 +36,16 @@ async def cmd_start(message: Message):
     """Короткое приветствие + inline-кнопки подписки + основное меню."""
     user_id = message.from_user.id
     first_name = message.from_user.first_name or ""
+    username = message.from_user.username
+    last_name = message.from_user.last_name
 
     logger.info(f"Пользователь {user_id} запустил бота")
+    
+    # Создаем или обновляем пользователя в базе данных
+    try:
+        await db_repo.create_user(user_id, username, first_name, last_name)
+    except Exception as e:
+        logger.error(f"Ошибка создания пользователя {user_id}: {e}")
 
     welcome_text = (
         f"Привет, {first_name}!\n\n"
@@ -186,6 +195,8 @@ async def keep_subscription(callback: CallbackQuery):
 # Обработчик фото с реальным LLM
 @router.message(F.photo)
 async def handle_photo(message: Message):
+    user_id = message.from_user.id
+    
     # Отправляем сообщение о начале обработки
     processing_msg = await message.answer("📸 Фото получено. Обрабатываю задание…")
     
@@ -195,12 +206,26 @@ async def handle_photo(message: Message):
         file = await message.bot.get_file(photo.file_id)
         image_bytes = await message.bot.download_file(file.file_path)
         
+        # Создаем или получаем ID диалога
+        conversation_id = f"user_{user_id}_main"
+        
+        # Получаем контекст диалога
+        conversation_context = await db_repo.get_conversation_context(user_id, conversation_id)
+        
         # Определяем предмет (пока без подсказки)
         subject, confidence = detect_subject(message.caption or "")
         subject_emoji = get_subject_emoji(subject)
         
-        # Решаем задачу
-        result = await llm_client.solve_image(image_bytes.read(), subject)
+        # Решаем задачу с контекстом
+        result = await llm_client.solve_image(image_bytes.read(), subject, conversation_context)
+        
+        # Сохраняем сообщения в контекст
+        photo_description = f"[Фото с заданием] {message.caption or ''}"
+        await db_repo.save_message(user_id, conversation_id, "user", photo_description)
+        await db_repo.save_message(user_id, conversation_id, "assistant", result['response'])
+        
+        # Сохраняем запрос в статистику
+        await db_repo.save_request(user_id, photo_description, "image", subject, result['response'])
         
         # Отправляем ответ как есть
         await processing_msg.delete()
@@ -226,16 +251,31 @@ async def handle_text(message: Message):
     if text in {"📝 Решить текстом", "📸 Решить по фото"}:
         return  # уже обработано соответствующими хендлерами
 
+    user_id = message.from_user.id
+    
     # Отправляем сообщение о начале обработки
     processing_msg = await message.answer("📝 Обрабатываю задание…")
     
     try:
+        # Создаем или получаем ID диалога
+        conversation_id = f"user_{user_id}_main"
+        
+        # Получаем контекст диалога
+        conversation_context = await db_repo.get_conversation_context(user_id, conversation_id)
+        
         # Определяем предмет
         subject, confidence = detect_subject(text)
         subject_emoji = get_subject_emoji(subject)
         
-        # Решаем задачу
-        result = await llm_client.solve_text(text, subject)
+        # Решаем задачу с контекстом
+        result = await llm_client.solve_text(text, subject, conversation_context)
+        
+        # Сохраняем сообщения в контекст
+        await db_repo.save_message(user_id, conversation_id, "user", text)
+        await db_repo.save_message(user_id, conversation_id, "assistant", result['response'])
+        
+        # Сохраняем запрос в статистику
+        await db_repo.save_request(user_id, text, "text", subject, result['response'])
         
         # Отправляем ответ как есть
         await processing_msg.delete()
