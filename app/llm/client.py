@@ -19,10 +19,7 @@ class LLMClient:
         if self.api_key == "demo_key":
             return {
                 "subject": subject_hint or "математика",
-                "short_answer": "x = 6",
-                "explanation": "Это демо-режим. Для полного функционала настройте OpenAI API ключ.",
-                "latex_formulas": [],
-                "quiz": []
+                "response": "Это демо-режим. Для полного функционала настройте OpenAI API ключ."
             }
         
         try:
@@ -64,10 +61,7 @@ class LLMClient:
         if self.api_key == "demo_key":
             return {
                 "subject": subject_hint or "математика", 
-                "short_answer": "Ответ по фото",
-                "explanation": "Это демо-режим. Для полного функционала настройте OpenAI API ключ.",
-                "latex_formulas": [],
-                "quiz": []
+                "response": "Это демо-режим. Для полного функционала настройте OpenAI API ключ."
             }
         
         try:
@@ -119,108 +113,31 @@ class LLMClient:
             return self._get_error_response()
     
     def _get_system_prompt(self, subject_hint: str = None) -> str:
-        """Возвращает системный промпт для предмета"""
-        base_prompt = """Ты - помощник по решению школьных задач. Решай задачи правильно и пошагово.
+        """Возвращает простой системный промпт"""
+        return """Ты - помощник по решению школьных задач. Решай задачи правильно и пошагово.
 
-ПРАВИЛА:
-1. Внимательно читай условие задачи
-2. Используй правильные формулы
-3. Проверяй вычисления
-4. Давай точный ответ
-
-ФОРМАТИРОВАНИЕ:
+Используй простые символы для формул:
 - Степени: x², x³
-- Индексы: x₁, x₂, v₀
+- Индексы: x₁, x₂, v₀  
 - Дроби: a/b
 - Корни: √x
 - Греческие буквы: α, β, θ
 - Функции: sin(α), cos(β), tan(θ)
 
-СТРУКТУРА:
-Короткий ответ: [если есть]
-Решение:
-1. [шаг 1]
-2. [шаг 2]
-...
-Ответ: [финальный ответ]
-
-Язык: русский."""
-        
-        if subject_hint:
-            subject_prompts = {
-                "математика": "\n\nМатематика: ВАЖНО - внимательно читай условие! Решай пошагово:\n- Квадратные уравнения: ax² + bx + c = 0, D = b² - 4ac\n- Системы уравнений: подстановка или сложение\n- Геометрия: площади, объемы, теоремы\nПроверяй ответ подстановкой!",
-                "физика": "\n\nФизика: ВАЖНО - внимательно читай условие! Используй правильные формулы:\n- Кинематика: v = v₀ + at, s = v₀t + at²/2, v² = v₀² + 2as\n- Динамика: F = ma, F = mg\n- Энергия: E = mv²/2, E = mgh\n- Баллистика: h = v₀²sin²(α)/(2g), s = v₀²sin(2α)/g\n- Вращение: ω = ω₀ + εt, φ = ω₀t + εt²/2, n = N/t, ω = 2πn, ε = (ω - ω₀)/t\n- Для задач на вращение: ω₀ = 2πn, n = N/t, ε = (0 - ω₀)/t (если остановился)\nПроверяй единицы измерения!",
-                "химия": "\n\nХимия: уравнивай реакции, вычисляй молярные массы, решай задачи на концентрации.",
-                "русский": "\n\nРусский язык: объясняй правила орфографии и пунктуации.",
-                "литература": "\n\nЛитература: анализируй произведения, объясняй литературные приемы.",
-                "английский": "\n\nАнглийский язык: объясняй грамматику, переводи тексты.",
-                "информатика": "\n\nИнформатика: объясняй алгоритмы, решай задачи программирования.",
-                "история": "\n\nИстория: объясняй исторические события и их причины.",
-                "география": "\n\nГеография: объясняй географические процессы и явления.",
-                "биология": "\n\nБиология: объясняй биологические процессы и закономерности."
-            }
-            base_prompt += subject_prompts.get(subject_hint.lower(), "")
-        
-        return base_prompt
+Отвечай на русском языке."""
     
     def _parse_response(self, content: str, subject_hint: str = None) -> Dict[str, Any]:
-        """Парсит ответ от LLM"""
-        import re
-        
-        short_answer = ""
-        explanation = content
-        latex_formulas = []
-        quiz = []
-        
-        # Ищем короткий ответ
-        short_answer_match = re.search(r'Короткий ответ:\s*(.*?)(?=\n\n|Решение:|$)', content, re.IGNORECASE | re.DOTALL)
-        if short_answer_match:
-            short_answer = short_answer_match.group(1).strip()
-        
-        # Ищем математические формулы с простыми символами
-        # Ищем формулы с греческими буквами, степенями, корнями
-        math_patterns = [
-            r'[αβγθπ][\w\s\+\-\*\/\^\(\)\d\.]+',  # Греческие буквы
-            r'[a-zA-Z]²|[a-zA-Z]³',  # Степени
-            r'√[a-zA-Z0-9\(\)\+\-\*\/]+',  # Корни
-            r'[a-zA-Z]₁|[a-zA-Z]₂|[a-zA-Z]₀',  # Индексы
-            r'[a-zA-Z]₂O|[a-zA-Z]₃',  # Химические формулы
-        ]
-        
-        for pattern in math_patterns:
-            matches = re.findall(pattern, content)
-            latex_formulas.extend([match.strip() for match in matches])
-        
-        # Убираем дубликаты
-        latex_formulas = list(dict.fromkeys(latex_formulas))
-        
-        # Ищем квиз
-        quiz_section = False
-        lines = content.split('\n')
-        for line in lines:
-            if "проверка себя" in line.lower() or "квиз" in line.lower():
-                quiz_section = True
-                continue
-            if quiz_section and line.strip():
-                if line.strip().startswith(('1)', '2)', '3)', '•', '-', '1.', '2.', '3.')):
-                    quiz.append(line.strip())
-        
+        """Простой парсинг - возвращаем ответ как есть"""
         return {
             "subject": subject_hint or "математика",
-            "short_answer": short_answer,
-            "explanation": explanation,
-            "latex_formulas": latex_formulas,
-            "quiz": quiz
+            "response": content
         }
     
     def _get_error_response(self) -> Dict[str, Any]:
         """Возвращает ответ при ошибке"""
         return {
             "subject": "неизвестно",
-            "short_answer": "Ошибка обработки",
-            "explanation": "Произошла ошибка при обработке запроса. Попробуйте еще раз.",
-            "latex_formulas": [],
-            "quiz": []
+            "response": "Произошла ошибка при обработке запроса. Попробуйте еще раз."
         }
 
 

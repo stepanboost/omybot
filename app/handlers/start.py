@@ -202,29 +202,9 @@ async def handle_photo(message: Message):
         # Решаем задачу
         result = await llm_client.solve_image(image_bytes.read(), subject)
         
-        # Формируем ответ
-        response = f"{subject_emoji} {result['subject'].title()}\n\n"
-        
-        if result['short_answer']:
-            response += f"Короткий ответ: {result['short_answer']}\n\n"
-        
-        # Очищаем объяснение от уже извлеченных частей
-        import re
-        explanation = result['explanation']
-        if result['short_answer']:
-            # Убираем дублирующийся "Короткий ответ" из объяснения
-            explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|Решение:|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
-        
-        response += f"Решение:\n{explanation.strip()}"
-        
-        if result['quiz']:
-            response += "\n\nПроверка себя:\n"
-            for i, question in enumerate(result['quiz'][:3], 1):
-                response += f"{i}. {question}\n"
-        
-        # Удаляем сообщение о обработке и отправляем результат
+        # Отправляем ответ как есть
         await processing_msg.delete()
-        await message.answer(response)
+        await message.answer(result['response'])
         
     except Exception as e:
         logger.error(f"Ошибка обработки фото: {e}")
@@ -257,29 +237,9 @@ async def handle_text(message: Message):
         # Решаем задачу
         result = await llm_client.solve_text(text, subject)
         
-        # Формируем ответ
-        response = f"{subject_emoji} {result['subject'].title()}\n\n"
-        
-        if result['short_answer']:
-            response += f"Короткий ответ: {result['short_answer']}\n\n"
-        
-        # Очищаем объяснение от уже извлеченных частей
-        import re
-        explanation = result['explanation']
-        if result['short_answer']:
-            # Убираем дублирующийся "Короткий ответ" из объяснения
-            explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|Решение:|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
-        
-        response += f"Решение:\n{explanation.strip()}"
-        
-        if result['quiz']:
-            response += "\n\nПроверка себя:\n"
-            for i, question in enumerate(result['quiz'][:3], 1):
-                response += f"{i}. {question}\n"
-        
-        # Удаляем сообщение о обработке и отправляем результат
+        # Отправляем ответ как есть
         await processing_msg.delete()
-        await message.answer(response)
+        await message.answer(result['response'])
         
     except Exception as e:
         logger.error(f"Ошибка обработки текста: {e}")
