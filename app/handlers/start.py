@@ -215,6 +215,9 @@ async def handle_photo(message: Message):
             # Убираем дублирующийся "Короткий ответ" из объяснения
             explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|Решение:|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
         
+        # Убираем дублирующееся "Решение:"
+        explanation = re.sub(r'Решение:\s*Решение:', 'Решение:', explanation, flags=re.IGNORECASE)
+        
         response += f"Решение:\n{explanation.strip()}"
         
         if result['quiz']:
@@ -269,6 +272,9 @@ async def handle_text(message: Message):
         if result['short_answer']:
             # Убираем дублирующийся "Короткий ответ" из объяснения
             explanation = re.sub(r'Короткий ответ:\s*.*?(?=\n\n|Решение:|$)', '', explanation, flags=re.IGNORECASE | re.DOTALL)
+        
+        # Убираем дублирующееся "Решение:"
+        explanation = re.sub(r'Решение:\s*Решение:', 'Решение:', explanation, flags=re.IGNORECASE)
         
         response += f"Решение:\n{explanation.strip()}"
         
